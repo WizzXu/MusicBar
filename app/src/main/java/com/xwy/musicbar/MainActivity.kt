@@ -16,18 +16,16 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.xwy.musicbar.databinding.ActivityMainBinding
+import kotlin.math.log10
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mBinding: ActivityMainBinding
 
-    val mLock: Object = Object()
-
-
     var isGetVoiceRun: Boolean = true
 
-    val SAMPLE_RATE_IN_HZ = 8000;
-    val BUFFER_SIZE = AudioRecord.getMinBufferSize(
+
+    private val bufferSize = AudioRecord.getMinBufferSize(
         SAMPLE_RATE_IN_HZ,
         AudioFormat.CHANNEL_IN_DEFAULT,
         AudioFormat.ENCODING_PCM_16BIT
@@ -40,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         mBinding = ActivityMainBinding.inflate(layoutInflater);
         setContentView(mBinding.root)
 
-        getWindow().addFlags(
+        window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         );
     }
@@ -73,14 +71,14 @@ class MainActivity : AppCompatActivity() {
 
     fun getNoiseLevel() {
         var mAudioRecord: AudioRecord = AudioRecord(
-            MediaRecorder.AudioSource.MIC, SAMPLE_RATE_IN_HZ,
-            AudioFormat.CHANNEL_IN_DEFAULT, AudioFormat.ENCODING_PCM_16BIT, BUFFER_SIZE
+            MediaRecorder.AudioSource.MIC, Companion.SAMPLE_RATE_IN_HZ,
+            AudioFormat.CHANNEL_IN_DEFAULT, AudioFormat.ENCODING_PCM_16BIT, bufferSize
         )
         Thread {
             mAudioRecord.startRecording()
-            val buffer = ShortArray(BUFFER_SIZE)
+            val buffer = ShortArray(bufferSize)
             while (isGetVoiceRun) {
-                mAudioRecord.read(buffer, 0, BUFFER_SIZE)
+                mAudioRecord.read(buffer, 0, bufferSize)
                 var volume = calculateVolume(buffer)
                 Log.e("----->", "分贝值 = ${volume}dB")
                 runOnUiThread(Runnable {
@@ -88,13 +86,6 @@ class MainActivity : AppCompatActivity() {
                         mBinding.myView.height * (((volume.toFloat() - 16) * 1.8f) / 35)
                     mBinding.myView.invalidate()
                 })
-                synchronized(mLock) {
-                    try {
-                        mLock.wait(20)
-                    } catch (e: InterruptedException) {
-                        e.printStackTrace()
-                    }
-                }
             }
             mAudioRecord.stop()
             mAudioRecord.release()
@@ -109,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             sumVolume += Math.abs(b.toInt()).toDouble()
         }
         avgVolume = sumVolume / buffer.size
-        volume = Math.log10(1 + avgVolume) * 10
+        volume = log10(1 + avgVolume) * 10
         return volume
     }
 
@@ -131,5 +122,9 @@ class MainActivity : AppCompatActivity() {
                 // Hide the nav bar and status bar
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
+    }
+
+    companion object {
+        const val SAMPLE_RATE_IN_HZ = 8000
     }
 }
